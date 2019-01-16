@@ -9,7 +9,8 @@
     tools:context=".MainActivity">
 
     <jk.android.twosidedswitch.TwoSidedSwitch
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        app:thumbShape="circle" />
 
 </LinearLayout>

@@ -5,10 +5,8 @@ import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
-import android.print.PrinterId;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
 import android.util.AttributeSet;
@@ -21,18 +19,13 @@ public class TwoSidedSwitch extends View {
 
     private final String TAG = TwoSidedSwitch.class.getSimpleName();
 
-    private int defaultWidth = 200;
-    private int defaultHeight = 100;
-
-    private int minWidth = 200;
-    private int minHeight = 100;
-
-    private int userDefinedWidth;
-    private int userDefinedHeight;
+    private int desiredWidth = 100;
+    private int desiredHeight = 40;
 
     private boolean showLabel;
-    private String thumbShape;
+    private Integer thumbShape;
 
+    private RectF outerViewShape, thumbViewShape;
     private Paint viewPaint, thumbPaint;
 
     private int padding = 8;
@@ -70,24 +63,27 @@ public class TwoSidedSwitch extends View {
     public TwoSidedSwitch(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
 
-        // setWillNotDraw(false);
-
-        // setMinimumWidth(minWidth);
-        // setMinimumHeight(minHeight);
+        // setWillNotDraw(false);   // used only when the parent is a ViewGroup (like LinearLayout, RelativeLayout, ....)
 
         if (attrs != null) {
             TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TwoSidedSwitch, 0, 0);
-
             try {
-                // userDefinedWidth = typedArray.getInteger()
                 showLabel = typedArray.getBoolean(R.styleable.TwoSidedSwitch_showLabel, false);
-                thumbShape = typedArray.getString(R.styleable.TwoSidedSwitch_thumbShape);
+                thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 1);
             } catch (Exception e) {
                 Log.d(TAG, e.getMessage());
             } finally {
                 typedArray.recycle();
             }
+        }
 
+        outerViewShape = new RectF(padding ,
+                padding,
+                this.getMeasuredWidth() - padding,
+                this.getMeasuredHeight() - padding); this is not working
+
+        if (thumbShape == 0) {
+            thumbViewShape = createThumbShape();
         }
 
         viewPaint = new Paint();
@@ -99,6 +95,10 @@ public class TwoSidedSwitch extends View {
         thumbPaint.setColor(Color.GREEN);
         thumbPaint.setStyle(Paint.Style.FILL);
         thumbPaint.setAntiAlias(true);
+
+        // thumbPaint.setShadowLayer(24, 0, 0, Color.RED);
+        // Important for certain APIs
+        // setLayerType(LAYER_TYPE_SOFTWARE, thumbPaint);
 
     }
 
@@ -170,47 +170,52 @@ public class TwoSidedSwitch extends View {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        // setMeasuredDimension(100, 40);
+
+        /*
+        Note: when overriding the onMeasure(), he call to super.onMeasure() should be removed
+        and after doing the necessary measurements setMeasuredDimension(int width, int height)
+        should be called.
+         */
+
+        // width/height suggested by the platform
+        int suggestedMinWidth = this.getSuggestedMinimumWidth();
+        int suggestedMinHeight = this.getSuggestedMinimumHeight();
+
+        int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+        int widthSizeInPixels = MeasureSpec.getSize(widthMeasureSpec);
+
+        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        int heightSizeInPixels = MeasureSpec.getSize(heightMeasureSpec);
+
+
+        // ToDo
+        // Override onMeasure to restrict the size of the custom view
+        // WRAP_CONTENT and MATCH_PARENT are NOT allowed
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // Log.d(TAG, "onDraw()");
-
-        // canvas.drawColor(Color.GREEN);
-
-        // canvas.drawCircle(200, 200, 200, viewPaint);
-
-        // canvas.drawRect(new RectF(getLeft(), getTop(), getRight(), getBottom()), viewPaint);
-
         // draw the outer shape
-        canvas.drawRoundRect(new RectF(this.getLeft() + padding , this.getTop() + padding, this.getRight() - padding, this.getBottom() - padding),
+        canvas.drawRoundRect(outerViewShape,
                 viewCornerRadii,
                 viewCornerRadii,
                 viewPaint);
 
         // draw the thumb
-        int thumbSize = defaultHeight - padding;
-        int thumbLeft = (this.getWidth() / 2) - (thumbSize / 2);
-        int thumbTop = padding;
-        int thumbRight = thumbLeft + thumbSize;
-        int thumbBottom = thumbTop + thumbSize;
-        canvas.drawRoundRect(new RectF(thumbLeft, thumbTop, thumbRight, thumbBottom),
-                thumbCornerRadii,
-                thumbCornerRadii,
-                thumbPaint);
+        if (thumbShape == 0) {  // draw a rectangular thumb
+            canvas.drawRoundRect(thumbViewShape,
+                    thumbCornerRadii,
+                    thumbCornerRadii,
+                    thumbPaint);
+        } else {    // draw a circular thumb
+            canvas.drawCircle(this.getMeasuredWidth() / 2,
+                    this.getMeasuredHeight() / 2,
+                    (this.getMeasuredHeight() / 2) - 24,
+                    thumbPaint);
+        }
 
-        /*int thumbSize = defaultHeight - padding;
-        int thumbLeft = 660;
-        int thumbTop = 50;
-        int thumbRight = thumbLeft + thumbSize;
-        int thumbBottom = thumbTop + thumbSize;
-        canvas.drawRoundRect(new RectF(thumbLeft, thumbTop, thumbRight, thumbBottom),
-                thumbCornerRadii,
-                thumbCornerRadii,
-                thumbPaint);*/
     }
 
     @Override
@@ -236,5 +241,19 @@ public class TwoSidedSwitch extends View {
     @Override
     protected void onDetachedFromWindow() { // OPTIONAL
         super.onDetachedFromWindow();
+    }
+
+    // ******************************************
+    // ****************************************** Helper methods
+    // ******************************************
+
+    private RectF createThumbShape() {
+        int thumbSize = (this.getMeasuredHeight() / 2) - padding;
+        int thumbLeft = (this.getMeasuredWidth() / 2) - (thumbSize / 2);
+        int thumbRight = thumbLeft + thumbSize;
+        int thumbTop = (this.getMeasuredHeight() / 2) - (thumbSize / 2);
+        int thumbBottom = thumbTop + thumbSize;
+
+        return new RectF(thumbLeft, thumbTop, thumbRight, thumbBottom);
     }
 }
