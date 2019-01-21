@@ -10,7 +10,6 @@
 
     <jk.android.twosidedswitch.TwoSidedSwitch
         android:layout_width="100dp"
-        android:layout_height="40dp"
-        app:thumbShape="circle" />
+        android:layout_height="40dp" /> <!--app:thumbShape="rectangle"-->
 
 </LinearLayout>

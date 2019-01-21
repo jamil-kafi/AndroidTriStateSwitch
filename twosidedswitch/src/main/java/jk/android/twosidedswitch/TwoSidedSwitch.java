@@ -1,16 +1,25 @@
 package jk.android.twosidedswitch;
 
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
+import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.util.AttributeSet;
+import android.util.EventLog;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 
 public class TwoSidedSwitch extends View {
@@ -19,19 +28,23 @@ public class TwoSidedSwitch extends View {
 
     private final String TAG = TwoSidedSwitch.class.getSimpleName();
 
+    private static final int THUMB_SHAPE_RECTANGLE = 0;
+    // private static final int THUMB_SHAPE_CIRCLE = 1;
+
     private int desiredWidth = 100;
     private int desiredHeight = 40;
 
     private boolean showLabel;
-    private Integer thumbShape;
+    // private Integer thumbShape;
 
-    private RectF outerViewShape, thumbViewShape;
+    private RectF outerViewShape;
+    private AnimatableRectF thumbViewShape;
     private Paint viewPaint, thumbPaint;
 
-    private int padding = 8;
+    private int viewInnerPadding = 16;
 
     private int viewCornerRadii = 48;
-    private int thumbCornerRadii = 16;
+    // private int thumbCornerRadii = 16;
 
     // ******************************************
 
@@ -69,7 +82,7 @@ public class TwoSidedSwitch extends View {
             TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TwoSidedSwitch, 0, 0);
             try {
                 showLabel = typedArray.getBoolean(R.styleable.TwoSidedSwitch_showLabel, false);
-                thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 1);
+                // thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 1);
             } catch (Exception e) {
                 Log.d(TAG, e.getMessage());
             } finally {
@@ -77,28 +90,7 @@ public class TwoSidedSwitch extends View {
             }
         }
 
-        outerViewShape = new RectF(padding ,
-                padding,
-                this.getMeasuredWidth() - padding,
-                this.getMeasuredHeight() - padding); this is not working
-
-        if (thumbShape == 0) {
-            thumbViewShape = createThumbShape();
-        }
-
-        viewPaint = new Paint();
-        viewPaint.setColor(Color.GRAY);
-        viewPaint.setStyle(Paint.Style.FILL);
-        viewPaint.setAntiAlias(true);
-
-        thumbPaint = new Paint();
-        thumbPaint.setColor(Color.GREEN);
-        thumbPaint.setStyle(Paint.Style.FILL);
-        thumbPaint.setAntiAlias(true);
-
-        // thumbPaint.setShadowLayer(24, 0, 0, Color.RED);
-        // Important for certain APIs
-        // setLayerType(LAYER_TYPE_SOFTWARE, thumbPaint);
+        init();
 
     }
 
@@ -164,6 +156,27 @@ public class TwoSidedSwitch extends View {
     }
 
     // ******************************************
+
+    private void init() {
+        outerViewShape = new RectF();
+        thumbViewShape = new AnimatableRectF();
+
+        viewPaint = new Paint();
+        viewPaint.setColor(Color.GRAY);
+        viewPaint.setStyle(Paint.Style.FILL);
+        viewPaint.setAntiAlias(true);
+
+        thumbPaint = new Paint();
+        thumbPaint.setColor(Color.GREEN);
+        thumbPaint.setStyle(Paint.Style.FILL);
+        thumbPaint.setAntiAlias(true);
+
+        // thumbPaint.setShadowLayer(24, 0, 0, Color.RED);
+        // Important for certain APIs
+        // setLayerType(LAYER_TYPE_SOFTWARE, thumbPaint);
+    }
+
+    // ******************************************
     // ****************************************** Re-implementation
     // ******************************************
 
@@ -188,7 +201,7 @@ public class TwoSidedSwitch extends View {
         int heightSizeInPixels = MeasureSpec.getSize(heightMeasureSpec);
 
 
-        // ToDo
+        // ToDo implement measureDimension(int desiredSize, int measureSpec) for width and height and use it in setMeasuredDimension()
         // Override onMeasure to restrict the size of the custom view
         // WRAP_CONTENT and MATCH_PARENT are NOT allowed
     }
@@ -197,24 +210,26 @@ public class TwoSidedSwitch extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        Log.d(TAG, "onDraw()");
+
         // draw the outer shape
+        outerViewShape.set(viewInnerPadding ,
+                viewInnerPadding,
+                this.getMeasuredWidth() - viewInnerPadding,
+                this.getMeasuredHeight() - viewInnerPadding);
         canvas.drawRoundRect(outerViewShape,
                 viewCornerRadii,
                 viewCornerRadii,
                 viewPaint);
 
         // draw the thumb
-        if (thumbShape == 0) {  // draw a rectangular thumb
-            canvas.drawRoundRect(thumbViewShape,
-                    thumbCornerRadii,
-                    thumbCornerRadii,
-                    thumbPaint);
-        } else {    // draw a circular thumb
-            canvas.drawCircle(this.getMeasuredWidth() / 2,
-                    this.getMeasuredHeight() / 2,
-                    (this.getMeasuredHeight() / 2) - 24,
-                    thumbPaint);
+        if (thumbViewShape.left == 0) {
+            initThumbShape();
         }
+        canvas.drawRoundRect(thumbViewShape,
+                viewCornerRadii,
+                viewCornerRadii,
+                thumbPaint);
 
     }
 
@@ -243,17 +258,138 @@ public class TwoSidedSwitch extends View {
         super.onDetachedFromWindow();
     }
 
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // Log.d(TAG, String.format("rawX: %s, halfWidth: %s", event.getRawX(), this.getWidth() / 2));
+        // float initialX = 0;
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                // initialX = event.getX();
+                break;
+            case MotionEvent.ACTION_UP:
+                // Log.d(TAG, String.format("rawX: %s, halfWidth: %s", event.getX(), this.getWidth() / 2));
+                repositionThumb(event);
+                break;
+            case MotionEvent.ACTION_MOVE:
+                /*float currentX = event.getX();
+                if (currentX > initialX) {
+                    thumbViewShape.offsetTo(currentX, thumbViewShape.top);
+                    invalidate();
+                    requestLayout();
+                }
+                initialX = currentX;*/
+                break;
+
+        }
+
+        return true;
+    }
+
     // ******************************************
     // ****************************************** Helper methods
     // ******************************************
 
-    private RectF createThumbShape() {
-        int thumbSize = (this.getMeasuredHeight() / 2) - padding;
-        int thumbLeft = (this.getMeasuredWidth() / 2) - (thumbSize / 2);
+    private void initThumbShape() {
+        Log.d(TAG, "initializing thumb coordinates...");
+        // int thumbSize = (this.getMeasuredHeight() / 2) - padding;
+        /*int thumbLeft = (this.getMeasuredWidth() / 2) - (thumbSize / 2);
         int thumbRight = thumbLeft + thumbSize;
         int thumbTop = (this.getMeasuredHeight() / 2) - (thumbSize / 2);
-        int thumbBottom = thumbTop + thumbSize;
+        int thumbBottom = thumbTop + thumbSize;*/
 
-        return new RectF(thumbLeft, thumbTop, thumbRight, thumbBottom);
+        int thumbLeft = this.getMeasuredWidth() / 3;
+        int thumbRight = thumbLeft + (this.getMeasuredWidth() / 3);
+        int thumbTop = 24;
+        int thumbBottom = this.getMeasuredHeight() - 24;
+
+        thumbViewShape.set(thumbLeft, thumbTop, thumbRight, thumbBottom);
+    }
+
+    private void repositionThumb(MotionEvent event) {
+        float thumbWidth = thumbViewShape.width();
+        if (event.getX() < (outerViewShape.width() / 3)) {
+            // thumbViewShape.offsetTo(outerViewShape.left + viewInnerPadding, thumbViewShape.top);
+            if (thumbViewShape.left > (outerViewShape.width() / 3)) {
+                animateThumb(thumbViewShape.left,
+                        (outerViewShape.left + viewInnerPadding),
+                        thumbViewShape.right,
+                        (outerViewShape.left + thumbWidth + viewInnerPadding));
+            }
+        } else if (event.getX() > ((outerViewShape.width() - viewInnerPadding) - (outerViewShape.width() / 3))) {
+            // thumbViewShape.offsetTo((outerViewShape.right - thumbViewShape.width() - viewInnerPadding), thumbViewShape.top);
+            if (thumbViewShape.left < outerViewShape.centerX()) {
+                animateThumb(thumbViewShape.left,
+                        (outerViewShape.width() - thumbWidth),
+                        thumbViewShape.right,
+                        outerViewShape.width());
+            }
+        } else {
+            // thumbViewShape.offsetTo(((outerViewShape.width() / 2) - (thumbViewShape.width() / 2) + viewInnerPadding), thumbViewShape.top);
+
+        }
+
+        // requestLayout();
+
+        //if (event.getRawX() > (this.getWidth() / 2)) {
+        //thumbViewShape.offsetTo(event.getX(), thumbViewShape.top);
+                /*thumbViewShape.set((int) event.getX(),
+                        thumbViewShape.top,
+                        thumbViewShape.right,
+                        thumbViewShape.bottom);*/
+        // thumbPaint.setColor(Color.RED);
+        //invalidate();
+        //requestLayout();
+        //}
+    }
+
+    private void animateThumb(float startLeft, float endLeft, float startRight, float endRight) {
+        // float thumbWidth = thumbViewShape.width();
+        ObjectAnimator leftAnimator = ObjectAnimator.ofFloat(thumbViewShape, "left", startLeft, endLeft);
+        ObjectAnimator rightAnimator = ObjectAnimator.ofFloat(thumbViewShape, "right", startRight, endRight);
+
+        leftAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                postInvalidate();
+            }
+        });
+
+        AnimatorSet animatorSet = new AnimatorSet();
+        animatorSet.setDuration(500);
+        animatorSet.setInterpolator(new FastOutSlowInInterpolator());
+        animatorSet.playTogether(leftAnimator, rightAnimator);
+        animatorSet.start();
+    }
+
+    private class AnimatableRectF extends RectF{
+        public AnimatableRectF() {
+            super();
+        }
+
+        public AnimatableRectF(float left, float top, float right, float bottom) {
+            super(left, top, right, bottom);
+        }
+
+        public AnimatableRectF(RectF r) {
+            super(r);
+        }
+
+        public AnimatableRectF(Rect r) {
+            super(r);
+        }
+
+        public void setTop(float top){
+            this.top = top;
+        }
+        public void setBottom(float bottom){
+            this.bottom = bottom;
+        }
+        public void setRight(float right){
+            this.right = right;
+        }
+        public void setLeft(float left){
+            this.left = left;
+        }
+
     }
 }
