@@ -10,6 +10,16 @@
 
     <jk.android.twosidedswitch.TwoSidedSwitch
         android:layout_width="100dp"
-        android:layout_height="40dp" /> <!--app:thumbShape="rectangle"-->
+        android:layout_height="40dp"
+        android:id="@+id/tss"
+        app:leftSideColor="@color/yellow"
+        app:rightSideColor="@color/green"/> <!--app:thumbShape="rectangle"-->
+
+    <Button
+        android:id="@+id/btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Change Thumb color"/>
 
 </LinearLayout>

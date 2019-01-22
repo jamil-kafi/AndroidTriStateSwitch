@@ -1,9 +1,9 @@
 package jk.android.twosidedswitch;
 
+import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -13,11 +13,11 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
+import android.support.annotation.ColorRes;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.util.AttributeSet;
-import android.util.EventLog;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -28,6 +28,8 @@ public class TwoSidedSwitch extends View {
 
     private final String TAG = TwoSidedSwitch.class.getSimpleName();
 
+    public enum SIDE {LEFT, MIDDLE, RIGHT}
+
     private static final int THUMB_SHAPE_RECTANGLE = 0;
     // private static final int THUMB_SHAPE_CIRCLE = 1;
 
@@ -35,6 +37,11 @@ public class TwoSidedSwitch extends View {
     private int desiredHeight = 40;
 
     private boolean showLabel;
+    private String label;
+    private int thumbColor = Color.WHITE;
+    private int neutralColor = Color.GRAY;
+    private int leftSideColor = -1;
+    private int rightSideColor = -1;
     // private Integer thumbShape;
 
     private RectF outerViewShape;
@@ -45,6 +52,8 @@ public class TwoSidedSwitch extends View {
 
     private int viewCornerRadii = 48;
     // private int thumbCornerRadii = 16;
+
+    private SIDE side = SIDE.MIDDLE;
 
     // ******************************************
 
@@ -81,10 +90,27 @@ public class TwoSidedSwitch extends View {
         if (attrs != null) {
             TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TwoSidedSwitch, 0, 0);
             try {
-                showLabel = typedArray.getBoolean(R.styleable.TwoSidedSwitch_showLabel, false);
-                // thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 1);
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_showLabel)) {
+                    showLabel = typedArray.getBoolean(R.styleable.TwoSidedSwitch_showLabel, false);
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_label)) {
+                    label = typedArray.getString(R.styleable.TwoSidedSwitch_label);
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbColor)) {
+                    thumbColor = typedArray.getColor(R.styleable.TwoSidedSwitch_thumbColor, getResources().getColor(android.R.color.white));
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_neutralColor)) {
+                    neutralColor = typedArray.getColor(R.styleable.TwoSidedSwitch_neutralColor, getResources().getColor(android.R.color.darker_gray));
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_leftSideColor)) {
+                    leftSideColor = typedArray.getColor(R.styleable.TwoSidedSwitch_leftSideColor, 0);
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_rightSideColor)) {
+                    rightSideColor = typedArray.getColor(R.styleable.TwoSidedSwitch_rightSideColor, 0);
+                }
+
             } catch (Exception e) {
-                Log.d(TAG, e.getMessage());
+                Log.e(TAG, e.getMessage());
             } finally {
                 typedArray.recycle();
             }
@@ -162,12 +188,12 @@ public class TwoSidedSwitch extends View {
         thumbViewShape = new AnimatableRectF();
 
         viewPaint = new Paint();
-        viewPaint.setColor(Color.GRAY);
+        viewPaint.setColor(neutralColor);
         viewPaint.setStyle(Paint.Style.FILL);
         viewPaint.setAntiAlias(true);
 
         thumbPaint = new Paint();
-        thumbPaint.setColor(Color.GREEN);
+        thumbPaint.setColor(thumbColor);
         thumbPaint.setStyle(Paint.Style.FILL);
         thumbPaint.setAntiAlias(true);
 
@@ -286,6 +312,43 @@ public class TwoSidedSwitch extends View {
     }
 
     // ******************************************
+    // ****************************************** Getters & Setters
+    // ******************************************
+
+
+    public SIDE getSide() {
+        return side;
+    }
+
+    public void setSide(SIDE side) {
+        this.side = side;
+    }
+
+    public void setThumbColor(int thumbColor) {
+        this.thumbColor = thumbColor;
+        thumbPaint.setColor(thumbColor);
+        invalidate();
+    }
+
+    public void setNeutralColor(int neutralColor) {
+        this.neutralColor = neutralColor;
+        viewPaint.setColor(neutralColor);
+        invalidate();
+    }
+
+    public void setLeftSideColor(int color) {
+        leftSideColor = color;
+        viewPaint.setColor(neutralColor);
+        invalidate();
+    }
+
+    public void setRightSideColor(int rightSideColor) {
+        this.rightSideColor = rightSideColor;
+        viewPaint.setColor(neutralColor);
+        invalidate();
+    }
+
+    // ******************************************
     // ****************************************** Helper methods
     // ******************************************
 
@@ -313,19 +376,27 @@ public class TwoSidedSwitch extends View {
                 animateThumb(thumbViewShape.left,
                         (outerViewShape.left + viewInnerPadding),
                         thumbViewShape.right,
-                        (outerViewShape.left + thumbWidth + viewInnerPadding));
+                        (outerViewShape.left + thumbWidth + viewInnerPadding),
+                        SIDE.LEFT);
             }
-        } else if (event.getX() > ((outerViewShape.width() - viewInnerPadding) - (outerViewShape.width() / 3))) {
+        } else if (event.getX() > ((outerViewShape.width()/* - viewInnerPadding*/) - (outerViewShape.width() / 3))) {
             // thumbViewShape.offsetTo((outerViewShape.right - thumbViewShape.width() - viewInnerPadding), thumbViewShape.top);
             if (thumbViewShape.left < outerViewShape.centerX()) {
                 animateThumb(thumbViewShape.left,
                         (outerViewShape.width() - thumbWidth),
                         thumbViewShape.right,
-                        outerViewShape.width());
+                        outerViewShape.width(),
+                        SIDE.RIGHT);
             }
         } else {
             // thumbViewShape.offsetTo(((outerViewShape.width() / 2) - (thumbViewShape.width() / 2) + viewInnerPadding), thumbViewShape.top);
-
+            if ((thumbViewShape.left < (outerViewShape.width() / 3)) || (thumbViewShape.left > outerViewShape.centerX())) {
+                animateThumb(thumbViewShape.left,
+                        (this.getMeasuredWidth() / 3),
+                        thumbViewShape.right,
+                        (this.getMeasuredWidth() - (this.getMeasuredWidth() / 3)),
+                        SIDE.MIDDLE);
+            }
         }
 
         // requestLayout();
@@ -342,7 +413,7 @@ public class TwoSidedSwitch extends View {
         //}
     }
 
-    private void animateThumb(float startLeft, float endLeft, float startRight, float endRight) {
+    private void animateThumb(float startLeft, float endLeft, float startRight, float endRight, final SIDE side) {
         // float thumbWidth = thumbViewShape.width();
         ObjectAnimator leftAnimator = ObjectAnimator.ofFloat(thumbViewShape, "left", startLeft, endLeft);
         ObjectAnimator rightAnimator = ObjectAnimator.ofFloat(thumbViewShape, "right", startRight, endRight);
@@ -358,6 +429,35 @@ public class TwoSidedSwitch extends View {
         animatorSet.setDuration(500);
         animatorSet.setInterpolator(new FastOutSlowInInterpolator());
         animatorSet.playTogether(leftAnimator, rightAnimator);
+        animatorSet.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                super.onAnimationEnd(animation);
+
+                setSide(side);
+                switch (side) {
+                    case LEFT:
+                        if (leftSideColor != -1) {
+                            viewPaint.setColor(leftSideColor);
+                            invalidate();
+                        }
+                        break;
+                    case RIGHT:
+                        if (rightSideColor != -1) {
+                            viewPaint.setColor(rightSideColor);
+                            invalidate();
+                        }
+                        break;
+                    case MIDDLE:
+                        viewPaint.setColor(neutralColor);
+                        invalidate();
+                        break;
+                    default:
+                        break;
+                }
+                // ToDo deliver value/state
+            }
+        });
         animatorSet.start();
     }
 

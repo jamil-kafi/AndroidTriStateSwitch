@@ -3,6 +3,9 @@
 
     <declare-styleable name="TwoSidedSwitch">
         <attr name="showLabel" format="boolean"/>
+        <attr name="label" format="string"/>
+        <attr name="thumbColor" format="color" />
+        <attr name="neutralColor" format="color"/>
         <attr name="leftSideColor" format="color"/>
         <attr name="rightSideColor" format="color"/>
         <!--<attr name="thumbShape" format="enum">
