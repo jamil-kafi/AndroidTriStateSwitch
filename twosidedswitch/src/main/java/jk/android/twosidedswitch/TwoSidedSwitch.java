@@ -37,7 +37,7 @@ public class TwoSidedSwitch extends View {
     public enum SIDE {LEFT, MIDDLE, RIGHT}
 
     private static final int THUMB_SHAPE_RECTANGLE = 0;
-    // private static final int THUMB_SHAPE_CIRCLE = 1;
+    private static final int THUMB_SHAPE_CIRCLE = 1;
 
     private final String WIDTH_PROPERTY = "width";
     private final String HEIGHT_PROPERTY = "height";
@@ -48,14 +48,12 @@ public class TwoSidedSwitch extends View {
     private int defaultWidthDp = 80;
     private int defaultHeightDp = 40;
 
-    private boolean showLabel;
-    private String label;
     private int thumbColor = Color.WHITE;
     private int neutralColor = Color.GRAY;
     private int leftSideColor = Color.GRAY;
     private int rightSideColor = Color.GRAY;
     private Integer thumbSpeed = 500;   // 500 ms
-    // private Integer thumbShape;
+    private Integer thumbShape;
 
     private RectF outerViewShape;
     private AnimatableRectF thumbViewShape;
@@ -63,8 +61,9 @@ public class TwoSidedSwitch extends View {
 
     private int viewInnerPadding = 16;
 
-    private int viewCornerRadii = 48;
-    // private int thumbCornerRadii = 16;
+    private int viewCornerRadii = 32;
+    private int rectangularThumbCornerRadii = 32;
+    private int circularThumbCornerRadii = 24;      // ToDo modify this
 
     private SIDE side = SIDE.MIDDLE;
 
@@ -107,12 +106,6 @@ public class TwoSidedSwitch extends View {
         if (attrs != null) {
             TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TwoSidedSwitch, 0, 0);
             try {
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_showLabel)) {
-                    showLabel = typedArray.getBoolean(R.styleable.TwoSidedSwitch_showLabel, false);
-                }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_label)) {
-                    label = typedArray.getString(R.styleable.TwoSidedSwitch_label);
-                }
                 if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbColor)) {
                     thumbColor = typedArray.getColor(R.styleable.TwoSidedSwitch_thumbColor, getResources().getColor(android.R.color.white));
                 }
@@ -127,6 +120,9 @@ public class TwoSidedSwitch extends View {
                 }
                 if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbSpeed)) {
                     thumbSpeed = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbSpeed, 500);
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbShape)) {
+                    thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 0);
                 }
 
             } catch (Exception e) {
@@ -283,8 +279,8 @@ public class TwoSidedSwitch extends View {
             initThumbShape();
         }
         canvas.drawRoundRect(thumbViewShape,
-                viewCornerRadii,
-                viewCornerRadii,
+                ((thumbShape == THUMB_SHAPE_RECTANGLE) ? rectangularThumbCornerRadii : circularThumbCornerRadii),
+                ((thumbShape == THUMB_SHAPE_RECTANGLE) ? rectangularThumbCornerRadii : circularThumbCornerRadii),
                 thumbPaint);
 
     }
@@ -472,6 +468,9 @@ public class TwoSidedSwitch extends View {
         int thumbBottom = this.getMeasuredHeight() - 24;
 
         thumbViewShape.set(thumbLeft, thumbTop, thumbRight, thumbBottom);
+
+        circularThumbCornerRadii = (int) thumbViewShape.width() / 2;
+
     }
 
     private void repositionThumb(MotionEvent event) {
