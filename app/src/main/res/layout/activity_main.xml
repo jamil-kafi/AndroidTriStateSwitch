@@ -9,11 +9,18 @@
     tools:context=".MainActivity">
 
     <jk.android.twosidedswitch.TwoSidedSwitch
-        android:layout_width="100dp"
-        android:layout_height="40dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:id="@+id/tss"
-        app:leftSideColor="@color/yellow"
-        app:rightSideColor="@color/green"/> <!--app:thumbShape="rectangle"-->
+        app:thumbColor="@color/colorPrimary"
+        app:thumbSpeed="500"/>
+
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"/>
 
     <Button
         android:id="@+id/btn"

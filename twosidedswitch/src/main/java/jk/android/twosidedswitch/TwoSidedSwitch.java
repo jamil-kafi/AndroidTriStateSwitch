@@ -3,6 +3,7 @@ package jk.android.twosidedswitch;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
+import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -13,35 +14,47 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
-import android.support.annotation.ColorRes;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 
+/**
+ * A custom switch toggle that has three sides: left, middle, right
+ * @author Jamil Kafi
+ * @version 1.0
+ */
 public class TwoSidedSwitch extends View {
 
     // ******************************************
 
-    private final String TAG = TwoSidedSwitch.class.getSimpleName();
+    private static final String TAG = TwoSidedSwitch.class.getSimpleName();
 
     public enum SIDE {LEFT, MIDDLE, RIGHT}
 
     private static final int THUMB_SHAPE_RECTANGLE = 0;
     // private static final int THUMB_SHAPE_CIRCLE = 1;
 
-    private int desiredWidth = 100;
-    private int desiredHeight = 40;
+    private final String WIDTH_PROPERTY = "width";
+    private final String HEIGHT_PROPERTY = "height";
+
+    private int defaultWidthPx = 80;
+    private int defaultHeightPx = 40;
+
+    private int defaultWidthDp = 80;
+    private int defaultHeightDp = 40;
 
     private boolean showLabel;
     private String label;
     private int thumbColor = Color.WHITE;
     private int neutralColor = Color.GRAY;
-    private int leftSideColor = -1;
-    private int rightSideColor = -1;
+    private int leftSideColor = Color.GRAY;
+    private int rightSideColor = Color.GRAY;
+    private Integer thumbSpeed = 500;   // 500 ms
     // private Integer thumbShape;
 
     private RectF outerViewShape;
@@ -54,6 +67,10 @@ public class TwoSidedSwitch extends View {
     // private int thumbCornerRadii = 16;
 
     private SIDE side = SIDE.MIDDLE;
+
+    private ICallback iCallback;
+
+
 
     // ******************************************
 
@@ -107,6 +124,9 @@ public class TwoSidedSwitch extends View {
                 }
                 if (typedArray.hasValue(R.styleable.TwoSidedSwitch_rightSideColor)) {
                     rightSideColor = typedArray.getColor(R.styleable.TwoSidedSwitch_rightSideColor, 0);
+                }
+                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbSpeed)) {
+                    thumbSpeed = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbSpeed, 500);
                 }
 
             } catch (Exception e) {
@@ -197,6 +217,9 @@ public class TwoSidedSwitch extends View {
         thumbPaint.setStyle(Paint.Style.FILL);
         thumbPaint.setAntiAlias(true);
 
+        defaultWidthDp = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, defaultWidthPx, getResources().getDisplayMetrics());
+        defaultHeightDp = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, defaultHeightPx, getResources().getDisplayMetrics());
+
         // thumbPaint.setShadowLayer(24, 0, 0, Color.RED);
         // Important for certain APIs
         // setLayerType(LAYER_TYPE_SOFTWARE, thumbPaint);
@@ -210,35 +233,42 @@ public class TwoSidedSwitch extends View {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
+        Log.v("onMeasure w", MeasureSpec.toString(widthMeasureSpec));
+        Log.v("onMeasure h", MeasureSpec.toString(heightMeasureSpec));
+
         /*
         Note: when overriding the onMeasure(), he call to super.onMeasure() should be removed
         and after doing the necessary measurements setMeasuredDimension(int width, int height)
         should be called.
+
+        The widthMeasureSpec and heightMeasureSpec which are the requirements passed to us by the parent.
+
+        See this for help: https://medium.com/@quiro91/custom-view-mastering-onmeasure-a0a0bb11784d
          */
 
         // width/height suggested by the platform
         int suggestedMinWidth = this.getSuggestedMinimumWidth();
         int suggestedMinHeight = this.getSuggestedMinimumHeight();
 
+        // the following 4 lines are for understanding only
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
         int widthSizeInPixels = MeasureSpec.getSize(widthMeasureSpec);
-
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
         int heightSizeInPixels = MeasureSpec.getSize(heightMeasureSpec);
 
-
-        // ToDo implement measureDimension(int desiredSize, int measureSpec) for width and height and use it in setMeasuredDimension()
-        // Override onMeasure to restrict the size of the custom view
-        // WRAP_CONTENT and MATCH_PARENT are NOT allowed
+        // WRAP_CONTENT and MATCH_PARENT are NOT allowed (will default to desiredWidth and desiredHeight)
+        int desiredWidth = suggestedMinWidth + this.getPaddingLeft() + this.getPaddingRight();
+        int desiredHeight = suggestedMinHeight + this.getPaddingTop() + this.getPaddingBottom();
+        int measuredWidth = measureDimension(desiredWidth, widthMeasureSpec, WIDTH_PROPERTY);
+        int measuredHeight = measureDimension(desiredHeight, heightMeasureSpec, HEIGHT_PROPERTY);
+        setMeasuredDimension(measuredWidth, measuredHeight);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        Log.d(TAG, "onDraw()");
-
-        // draw the outer shape
+        // Draw the outer shape
         outerViewShape.set(viewInnerPadding ,
                 viewInnerPadding,
                 this.getMeasuredWidth() - viewInnerPadding,
@@ -248,7 +278,7 @@ public class TwoSidedSwitch extends View {
                 viewCornerRadii,
                 viewPaint);
 
-        // draw the thumb
+        // Draw the thumb
         if (thumbViewShape.left == 0) {
             initThumbShape();
         }
@@ -286,7 +316,6 @@ public class TwoSidedSwitch extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        // Log.d(TAG, String.format("rawX: %s, halfWidth: %s", event.getRawX(), this.getWidth() / 2));
         // float initialX = 0;
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -316,12 +345,43 @@ public class TwoSidedSwitch extends View {
     // ******************************************
 
 
+    public ICallback getCallback() {
+        return iCallback;
+    }
+
+    public void setCallback(ICallback iCallback) {
+        this.iCallback = iCallback;
+    }
+
     public SIDE getSide() {
         return side;
     }
 
     public void setSide(SIDE side) {
         this.side = side;
+
+        int destinationX;
+        switch (side) {
+            case LEFT:
+                destinationX = viewInnerPadding;
+                break;
+            case MIDDLE:
+                destinationX = this.getMeasuredWidth() / 2;
+                break;
+            case RIGHT:
+                destinationX = this.getMeasuredWidth() - viewInnerPadding;
+                break;
+            default:
+                destinationX = 0;
+                break;
+        }
+
+        MotionEvent motionEvent = MotionEvent.obtain(100, 100, MotionEvent.ACTION_UP, destinationX, thumbViewShape.centerY(), 0);
+        repositionThumb(motionEvent);
+    }
+
+    public int getThumbColor() {
+        return thumbColor;
     }
 
     public void setThumbColor(int thumbColor) {
@@ -330,10 +390,18 @@ public class TwoSidedSwitch extends View {
         invalidate();
     }
 
+    public int getNeutralColor() {
+        return neutralColor;
+    }
+
     public void setNeutralColor(int neutralColor) {
         this.neutralColor = neutralColor;
         viewPaint.setColor(neutralColor);
         invalidate();
+    }
+
+    public int getLeftSideColor() {
+        return leftSideColor;
     }
 
     public void setLeftSideColor(int color) {
@@ -342,15 +410,53 @@ public class TwoSidedSwitch extends View {
         invalidate();
     }
 
+    public int getRightSideColor() {
+        return rightSideColor;
+    }
+
     public void setRightSideColor(int rightSideColor) {
         this.rightSideColor = rightSideColor;
         viewPaint.setColor(neutralColor);
         invalidate();
     }
 
+    public Integer getThumbSpeed() {
+        return thumbSpeed;
+    }
+
+    public void setThumbSpeed(Integer thumbSpeed) {
+        this.thumbSpeed = thumbSpeed;
+    }
+
     // ******************************************
     // ****************************************** Helper methods
     // ******************************************
+
+    private int measureDimension(int desiredSize, int measureSpec, String property) {
+        int result;
+
+        int specMode = MeasureSpec.getMode(measureSpec);
+        int specSize = MeasureSpec.getSize(measureSpec);
+
+        /* The following code is applicable and valid for other different views,
+            but for the current view we will force fixed dimensions to avoid problems */
+        /*if (specMode == MeasureSpec.EXACTLY) {  // the user has chosen a fixed size, so use the suggested size
+            result = specSize;
+        } else {    // the user has chosen either match_parent or wrap_content
+            result = desiredSize;
+            if (specMode == MeasureSpec.AT_MOST) {
+                result = Math.min(result, specSize);
+            }
+        }*/
+
+        if (property.equals(WIDTH_PROPERTY)) {
+            result = defaultWidthDp;
+        } else {
+            result = defaultHeightDp;
+        }
+
+        return result;
+    }
 
     private void initThumbShape() {
         Log.d(TAG, "initializing thumb coordinates...");
@@ -398,68 +504,81 @@ public class TwoSidedSwitch extends View {
                         SIDE.MIDDLE);
             }
         }
-
-        // requestLayout();
-
-        //if (event.getRawX() > (this.getWidth() / 2)) {
-        //thumbViewShape.offsetTo(event.getX(), thumbViewShape.top);
-                /*thumbViewShape.set((int) event.getX(),
-                        thumbViewShape.top,
-                        thumbViewShape.right,
-                        thumbViewShape.bottom);*/
-        // thumbPaint.setColor(Color.RED);
-        //invalidate();
-        //requestLayout();
-        //}
     }
 
     private void animateThumb(float startLeft, float endLeft, float startRight, float endRight, final SIDE side) {
-        // float thumbWidth = thumbViewShape.width();
+
+        this.side = side;
+
         ObjectAnimator leftAnimator = ObjectAnimator.ofFloat(thumbViewShape, "left", startLeft, endLeft);
         ObjectAnimator rightAnimator = ObjectAnimator.ofFloat(thumbViewShape, "right", startRight, endRight);
+
+        ObjectAnimator colorAnimator = ObjectAnimator.ofObject(viewPaint, "color", new ArgbEvaluator(), destinationColor(side));
 
         leftAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
+                // Invalidate the view to perform a re-draw.
                 postInvalidate();
             }
         });
 
         AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.setDuration(500);
+        animatorSet.setDuration(this.thumbSpeed);
         animatorSet.setInterpolator(new FastOutSlowInInterpolator());
-        animatorSet.playTogether(leftAnimator, rightAnimator);
+        animatorSet.playTogether(leftAnimator, rightAnimator, colorAnimator);
         animatorSet.addListener(new AnimatorListenerAdapter() {
+
+            @Override
+            public void onAnimationStart(Animator animation) {
+                super.onAnimationStart(animation);
+
+                // Deliver side change started event.
+                if (iCallback != null) {
+                    iCallback.onSideChangeStarted(side);
+                }
+            }
+
             @Override
             public void onAnimationEnd(Animator animation) {
                 super.onAnimationEnd(animation);
 
-                setSide(side);
-                switch (side) {
-                    case LEFT:
-                        if (leftSideColor != -1) {
-                            viewPaint.setColor(leftSideColor);
-                            invalidate();
-                        }
-                        break;
-                    case RIGHT:
-                        if (rightSideColor != -1) {
-                            viewPaint.setColor(rightSideColor);
-                            invalidate();
-                        }
-                        break;
-                    case MIDDLE:
-                        viewPaint.setColor(neutralColor);
-                        invalidate();
-                        break;
-                    default:
-                        break;
+                // Deliver side change ended event.
+                if (iCallback != null) {
+                    iCallback.onSideChangeEnded(side);
                 }
-                // ToDo deliver value/state
             }
         });
         animatorSet.start();
     }
+
+    private int destinationColor(SIDE side) {
+        switch (side) {
+            case LEFT:
+                return leftSideColor;
+            case MIDDLE:
+                return neutralColor;
+            case RIGHT:
+                return rightSideColor;
+            default:
+                return 0;
+        }
+    }
+
+    // ******************************************
+    // ****************************************** Callbacks & Listeners
+    // ******************************************
+
+    public static abstract class ICallback {
+        public abstract void onSideChangeEnded(SIDE side);
+        public void onSideChangeStarted(SIDE side) {
+            Log.d(TwoSidedSwitch.TAG, String.format("onSideChangeStarted(%s)", side.name()));
+        }
+    }
+
+    // ******************************************
+    // ****************************************** Custom classes
+    // ******************************************
 
     private class AnimatableRectF extends RectF{
         public AnimatableRectF() {
