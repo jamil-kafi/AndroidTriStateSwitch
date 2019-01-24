@@ -1,4 +1,4 @@
-package jk.android.twosidedswitch;
+package jk.android.tristateswitch;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getTargetContext();
 
-        assertEquals("jk.android.twosidedswitch.test", appContext.getPackageName());
+        assertEquals("jk.android.tristateswitch.test", appContext.getPackageName());
     }
 }

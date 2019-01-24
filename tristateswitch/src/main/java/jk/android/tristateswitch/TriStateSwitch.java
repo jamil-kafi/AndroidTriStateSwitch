@@ -1,4 +1,4 @@
-package jk.android.twosidedswitch;
+package jk.android.tristateswitch;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -28,16 +28,21 @@ import android.view.View;
  * @author Jamil Kafi
  * @version 1.0
  */
-public class TwoSidedSwitch extends View {
+public class TriStateSwitch extends View {
 
     // ******************************************
 
-    private static final String TAG = TwoSidedSwitch.class.getSimpleName();
+    private static final String TAG = TriStateSwitch.class.getSimpleName();
 
     public enum SIDE {LEFT, MIDDLE, RIGHT}
 
-    private static final int THUMB_SHAPE_RECTANGLE = 0;
-    private static final int THUMB_SHAPE_CIRCLE = 1;
+    public static final int THUMB_SHAPE_RECTANGLE = 0;
+    public static final int THUMB_SHAPE_CIRCLE = 1;
+
+    private final int DEFAULT_RECTANGULAR_VIEW_CORNER_RADII = 32;
+    private final int DEFAULT_RECTANGULAR_THUMB_CORNER_RADII = 32;
+    private int DEFAULT_CIRCULAR_VIEW_CORNER_RADII = 0;      // To be calculated later
+    private int DEFAULT_CIRCULAR_THUMB_CORNER_RADII = 0;     // To be calculated later
 
     private final String WIDTH_PROPERTY = "width";
     private final String HEIGHT_PROPERTY = "height";
@@ -54,6 +59,7 @@ public class TwoSidedSwitch extends View {
     private int rightSideColor = Color.GRAY;
     private Integer thumbSpeed = 500;   // 500 ms
     private Integer thumbShape;
+    private int shapeTransformationSpeed = 500;
 
     private RectF outerViewShape;
     private AnimatableRectF thumbViewShape;
@@ -61,9 +67,10 @@ public class TwoSidedSwitch extends View {
 
     private int viewInnerPadding = 16;
 
-    private int viewCornerRadii = 32;
+    private int rectangularViewCornerRadii = 32;
+    private int circularViewCornerRadii = 0;        // To be calculated later
     private int rectangularThumbCornerRadii = 32;
-    private int circularThumbCornerRadii = 24;      // ToDo modify this
+    private int circularThumbCornerRadii = 0;       // To be calculated later
 
     private SIDE side = SIDE.MIDDLE;
 
@@ -79,7 +86,7 @@ public class TwoSidedSwitch extends View {
      * @param context The Context the view is running in, through which it can
      *                access the current theme, resources, etc.
      */
-    public TwoSidedSwitch(Context context) {
+    public TriStateSwitch(Context context) {
         // super(context);
         this(context, null);
     }
@@ -96,33 +103,33 @@ public class TwoSidedSwitch extends View {
      * @param context The Context the view is running in, through which it can
      *                access the current theme, resources, etc.
      * @param attrs   The attributes of the XML tag that is inflating the view.
-     * @see #TwoSidedSwitch(Context, AttributeSet, int)
+     * @see #TriStateSwitch(Context, AttributeSet, int)
      */
-    public TwoSidedSwitch(Context context, @Nullable AttributeSet attrs) {
+    public TriStateSwitch(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
 
         // setWillNotDraw(false);   // used only when the parent is a ViewGroup (like LinearLayout, RelativeLayout, ....)
 
         if (attrs != null) {
-            TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TwoSidedSwitch, 0, 0);
+            TypedArray typedArray = context.getTheme().obtainStyledAttributes(attrs, R.styleable.TriStateSwitch, 0, 0);
             try {
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbColor)) {
-                    thumbColor = typedArray.getColor(R.styleable.TwoSidedSwitch_thumbColor, getResources().getColor(android.R.color.white));
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_thumbColor)) {
+                    thumbColor = typedArray.getColor(R.styleable.TriStateSwitch_thumbColor, getResources().getColor(android.R.color.white));
                 }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_neutralColor)) {
-                    neutralColor = typedArray.getColor(R.styleable.TwoSidedSwitch_neutralColor, getResources().getColor(android.R.color.darker_gray));
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_neutralColor)) {
+                    neutralColor = typedArray.getColor(R.styleable.TriStateSwitch_neutralColor, getResources().getColor(android.R.color.darker_gray));
                 }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_leftSideColor)) {
-                    leftSideColor = typedArray.getColor(R.styleable.TwoSidedSwitch_leftSideColor, 0);
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_leftSideColor)) {
+                    leftSideColor = typedArray.getColor(R.styleable.TriStateSwitch_leftSideColor, 0);
                 }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_rightSideColor)) {
-                    rightSideColor = typedArray.getColor(R.styleable.TwoSidedSwitch_rightSideColor, 0);
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_rightSideColor)) {
+                    rightSideColor = typedArray.getColor(R.styleable.TriStateSwitch_rightSideColor, 0);
                 }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbSpeed)) {
-                    thumbSpeed = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbSpeed, 500);
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_thumbSpeed)) {
+                    thumbSpeed = typedArray.getInteger(R.styleable.TriStateSwitch_thumbSpeed, 500);
                 }
-                if (typedArray.hasValue(R.styleable.TwoSidedSwitch_thumbShape)) {
-                    thumbShape = typedArray.getInteger(R.styleable.TwoSidedSwitch_thumbShape, 0);
+                if (typedArray.hasValue(R.styleable.TriStateSwitch_thumbShape)) {
+                    thumbShape = typedArray.getInteger(R.styleable.TriStateSwitch_thumbShape, 0);
                 }
 
             } catch (Exception e) {
@@ -151,9 +158,9 @@ public class TwoSidedSwitch extends View {
      * @param defStyleAttr An attribute in the current theme that contains a
      *                     reference to a style resource that supplies default values for
      *                     the view. Can be 0 to not look for defaults.
-     * @see #TwoSidedSwitch(Context, AttributeSet)
+     * @see #TriStateSwitch(Context, AttributeSet)
      */
-    public TwoSidedSwitch(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public TriStateSwitch(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         // super(context, attrs, defStyleAttr);
         this(context, attrs);
     }
@@ -189,10 +196,10 @@ public class TwoSidedSwitch extends View {
      *                     supplies default values for the view, used only if
      *                     defStyleAttr is 0 or can not be found in the theme. Can be 0
      *                     to not look for defaults.
-     * @see #TwoSidedSwitch(Context, AttributeSet, int)
+     * @see #TriStateSwitch(Context, AttributeSet, int)
      */
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    public TwoSidedSwitch(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+    public TriStateSwitch(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         // super(context, attrs, defStyleAttr, defStyleRes);
         this(context, attrs);
     }
@@ -265,13 +272,12 @@ public class TwoSidedSwitch extends View {
         super.onDraw(canvas);
 
         // Draw the outer shape
-        outerViewShape.set(viewInnerPadding ,
-                viewInnerPadding,
-                this.getMeasuredWidth() - viewInnerPadding,
-                this.getMeasuredHeight() - viewInnerPadding);
+        if (outerViewShape.right == 0) {
+            initViewShape();
+        }
         canvas.drawRoundRect(outerViewShape,
-                viewCornerRadii,
-                viewCornerRadii,
+                ((thumbShape == THUMB_SHAPE_RECTANGLE) ? rectangularViewCornerRadii : circularViewCornerRadii),
+                ((thumbShape == THUMB_SHAPE_RECTANGLE) ? rectangularViewCornerRadii : circularViewCornerRadii),
                 viewPaint);
 
         // Draw the thumb
@@ -424,6 +430,37 @@ public class TwoSidedSwitch extends View {
         this.thumbSpeed = thumbSpeed;
     }
 
+    public Integer getThumbShape() {
+        return thumbShape;
+    }
+
+    /**
+     * Changes the shape of the thumb.
+     * @param thumbShape the new shape, can be either TriStateSwitch.THUMB_SHAPE_RECTANGLE or TriStateSwitch.THUMB_SHAPE_CIRCLE
+     */
+    public void setThumbShape(Integer thumbShape, boolean animateTransformation) {
+        // ToDo implement the transformation animation
+        if (thumbShape == THUMB_SHAPE_RECTANGLE || thumbShape == THUMB_SHAPE_CIRCLE) {
+            if (!this.thumbShape.equals(thumbShape)) {
+
+                this.thumbShape = thumbShape;
+                if (animateTransformation) {
+                    animateViewShapeMorphing();
+                } else {
+                    invalidate();
+                }
+            }
+        }
+    }
+
+    public int getShapeTransformationSpeed() {
+        return shapeTransformationSpeed;
+    }
+
+    public void setShapeTransformationSpeed(int shapeTransformationSpeed) {
+        this.shapeTransformationSpeed = shapeTransformationSpeed;
+    }
+
     // ******************************************
     // ****************************************** Helper methods
     // ******************************************
@@ -454,6 +491,16 @@ public class TwoSidedSwitch extends View {
         return result;
     }
 
+    private void initViewShape() {
+        Log.d(TAG, "initializing outer view coordinates...");
+        outerViewShape.set(viewInnerPadding ,
+                viewInnerPadding,
+                this.getMeasuredWidth() - viewInnerPadding,
+                this.getMeasuredHeight() - viewInnerPadding);
+        circularViewCornerRadii = (int) outerViewShape.height() / 2;
+        DEFAULT_CIRCULAR_VIEW_CORNER_RADII = circularViewCornerRadii;
+    }
+
     private void initThumbShape() {
         Log.d(TAG, "initializing thumb coordinates...");
         // int thumbSize = (this.getMeasuredHeight() / 2) - padding;
@@ -470,6 +517,7 @@ public class TwoSidedSwitch extends View {
         thumbViewShape.set(thumbLeft, thumbTop, thumbRight, thumbBottom);
 
         circularThumbCornerRadii = (int) thumbViewShape.width() / 2;
+        DEFAULT_CIRCULAR_THUMB_CORNER_RADII = circularThumbCornerRadii;
 
     }
 
@@ -551,6 +599,33 @@ public class TwoSidedSwitch extends View {
         animatorSet.start();
     }
 
+    private void animateViewShapeMorphing() {
+        Log.d(TAG, "animating view transformation");
+        ValueAnimator viewRadiiAnimator = (thumbShape == THUMB_SHAPE_RECTANGLE)
+                ? ValueAnimator.ofInt(DEFAULT_CIRCULAR_VIEW_CORNER_RADII, DEFAULT_RECTANGULAR_VIEW_CORNER_RADII)
+                : ValueAnimator.ofInt(DEFAULT_RECTANGULAR_VIEW_CORNER_RADII, DEFAULT_CIRCULAR_VIEW_CORNER_RADII);
+        viewRadiiAnimator.setDuration(shapeTransformationSpeed);
+        viewRadiiAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                // Log.d(TAG, String.format("transformation update: %d", (int) animation.getAnimatedValue()));
+                if (thumbShape == THUMB_SHAPE_RECTANGLE) {
+                    rectangularViewCornerRadii = (int) animation.getAnimatedValue();
+                    rectangularThumbCornerRadii = (int) animation.getAnimatedValue();
+                } else {
+                    circularViewCornerRadii = (int) animation.getAnimatedValue();
+                    circularThumbCornerRadii = (int) animation.getAnimatedValue();
+                }
+                invalidate();
+            }
+        });
+
+        /*ValueAnimator thumbRadiiAnimator = (thumbShape == THUMB_SHAPE_RECTANGLE)
+                ? ValueAnimator.ofInt(DEFAULT_CIRCULAR_THUMB_CORNER_RADII, DEFAULT_RECTANGULAR_THUMB_CORNER_RADII)
+                : ValueAnimator.ofInt(DEFAULT_RECTANGULAR_THUMB_CORNER_RADII, DEFAULT_CIRCULAR_THUMB_CORNER_RADII);*/
+        viewRadiiAnimator.start();
+    }
+
     private int destinationColor(SIDE side) {
         switch (side) {
             case LEFT:
@@ -571,7 +646,7 @@ public class TwoSidedSwitch extends View {
     public static abstract class ICallback {
         public abstract void onSideChangeEnded(SIDE side);
         public void onSideChangeStarted(SIDE side) {
-            Log.d(TwoSidedSwitch.TAG, String.format("onSideChangeStarted(%s)", side.name()));
+            Log.d(TAG, String.format("onSideChangeStarted(%s)", side.name()));
         }
     }
 

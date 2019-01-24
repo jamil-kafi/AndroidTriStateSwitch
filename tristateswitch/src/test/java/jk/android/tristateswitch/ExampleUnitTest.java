@@ -1,4 +1,4 @@
-package jk.android.twosidedswitch;
+package jk.android.tristateswitch;
 
 import org.junit.Test;
 
