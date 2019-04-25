@@ -1,4 +1,4 @@
-package jk.android.androidcustomviewdemo;
+package jk.android.androidtristateswitch;
 
 import org.junit.Test;
 
